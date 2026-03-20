@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURAL.CORE // QUANTUM BIOMETRICS</title>
+    
+    <!-- High-End Frameworks -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Space+Grotesk:wght@300;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --neon: #00f2ff; --bg: #050505; }
+        body { background: var(--bg); color: #fff; font-family: 'Space Grotesk', sans-serif; overflow: hidden; margin: 0; }
+        
+        /* 3D Canvas Background */
+        #bg-canvas { position: fixed; top: 0; left: 0; z-index: -1; }
+
+        /* Glassmorphism UI */
+        .glass { 
+            background: rgba(255, 255, 255, 0.02); 
+            backdrop-filter: blur(40px); 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border-radius: 60px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Biometric Scanning Line */
+        .scanner-laser {
+            position: absolute; width: 100%; height: 3px; 
+            background: var(--neon); box-shadow: 0 0 25px var(--neon);
+            top: 0; display: none; animation: scanMove 2.5s linear infinite; z-index: 50;
+        }
+        @keyframes scanMove { 0% { top: 0; } 100% { top: 100%; } }
+
+        /* Greeting Page Overlay */
+        #greeting-page {
+            display: none; position: fixed; inset: 0; 
+            background: radial-gradient(circle at center, #001a1a 0%, #000 100%);
+            z-index: 9999; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; text-align: center;
+        }
+
+        .glow-text { text-shadow: 0 0 30px rgba(0, 242, 255, 0.8); font-family: 'Orbitron', sans-serif; }
+        
+        /* Typography */
+        h1, h2 { font-family: 'Orbitron', sans-serif; }
+        input::placeholder { color: rgba(0, 242, 255, 0.2); }
+        
+        .hud-text { font-family: monospace; font-size: 9px; color: var(--neon); opacity: 0.6; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D BACKGROUND ENGINE -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- 100/10 GREETING PAGE (FADES IN AFTER REGISTER) -->
+    <div id="greeting-page">
+        <div class="space-y-4">
+            <p class="text-cyan-500 tracking-[1.5em] text-[10px] uppercase font-bold animate-pulse">Neural Match Confirmed</p>
+            <h3 class="text-white/40 text-2xl font-light">WELCOME TO THE CORE,</h3>
+            <h2 id="display-name" class="text-9xl font-black text-white glow-text italic tracking-tighter uppercase">USER</h2>
+            
+            <div class="mt-12 flex items-center justify-center gap-8 opacity-20">
+                <div class="h-[1px] w-32 bg-cyan-400"></div>
+                <div class="w-4 h-4 border-2 border-cyan-400 rotate-45 animate-spin"></div>
+                <div class="h-[1px] w-32 bg-cyan-400"></div>
+            </div>
+
+            <button onclick="location.reload()" class="mt-20 border border-cyan-900 text-cyan-900 px-12 py-3 hover:border-cyan-400 hover:text-cyan-400 transition-all text-[10px] tracking-[1em] uppercase">Terminate Session</button>
+        </div>
+    </div>
+
+    <!-- MAIN INTERFACE -->
+    <div id="main-interface" class="min-h-screen flex flex-col items-center justify-center p-8 relative">
+        
+        <!-- Corporate Header -->
+        <header class="absolute top-10 left-12 right-12 flex justify-between items-center z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-3 h-3 bg-cyan-500 rounded-full animate-ping"></div>
+                <span class="text-xs font-bold tracking-[0.5em] text-white">NEURAL.CORE // SYSTEMS</span>
+            </div>
+            <div class="text-[10px] text-gray-600 tracking-widest hidden md:block">ENCRYPTION: QUANTUM_AES_256 // SERVER: ACTIVE</div>
+        </header>
+
+        <div class="glass max-w-6xl w-full p-16 grid md:grid-cols-2 gap-20 relative">
+            
+            <!-- Biometric Webcam HUD -->
+            <div class="relative rounded-[50px] overflow-hidden bg-black aspect-[4/5] border border-white/5 shadow-2xl group">
+                <video id="webcam" autoplay playsinline class="w-full h-full object-cover grayscale brightness-125 opacity-70 group-hover:opacity-100 transition-all duration-1000"></video>
+                <div id="laser" class="scanner-laser"></div>
+                
+                <!-- HUD Overlays -->
+                <div class="absolute inset-0 p-8 flex flex-col justify-between pointer-events-none hud-text">
+                    <div class="flex justify-between uppercase">
+                        <div>
+                            <p>Capture_Mode: BIOMETRIC_V7</p>
+                            <p id="status-display">Status: Standby</p>
+                        </div>
+                        <div class="text-right">
+                            <p>FPS: 60.0</p>
+                            <p>LATENCY: 0.003ms</p>
+                        </div>
+                    </div>
+
+                    <!-- Target Focus Area -->
+                    <div class="self-center w-64 h-64 border border-cyan-500/20 rounded-full flex items-center justify-center relative">
+                        <div class="absolute inset-0 border-t-2 border-cyan-500/40 rounded-full animate-spin"></div>
+                        <div class="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_15px_cyan]"></div>
+                    </div>
+
+                    <div class="flex justify-between items-end opacity-40 uppercase">
+                        <p>COORD: 34.0522° N <br> 118.2437° W</p>
+                        <p>GAZE: LOCK_ACQUIRED</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interaction Column -->
+            <div class="flex flex-col justify-center space-y-12">
+                <div>
+                    <h1 class="text-8xl font-black italic tracking-tighter leading-none text-white">IDENTITY<br><span class="text-cyan-500">VAULT</span></h1>
+                    <p class="text-cyan-900 text-[10px] mt-6 tracking-[0.8em] font-bold uppercase italic">Future-Proof Biometric Protocol</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="relative group">
+                        <input type="text" id="nameBox" placeholder="ENTER IDENTITY ID" 
+                               class="w-full bg-transparent border-b-2 border-cyan-950 p-6 focus:border-cyan-400 outline-none text-cyan-400 font-bold text-2xl uppercase tracking-widest transition-all">
+                        <div class="absolute bottom-0 left-0 h-[2px] w-0 bg-cyan-400 group-hover:w-full transition-all duration-500"></div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-6 pt-6">
+                        <button type="button" onclick="handleAction('signup')" 
+                                class="bg-cyan-500 text-black font-black py-6 rounded-3xl hover:bg-white transition-all transform active:scale-95 text-xs tracking-[0.2em] uppercase shadow-xl shadow-cyan-500/20">
+                            Register Identity
+                        </button>
+                        
+                        <button type="button" onclick="handleAction('login')" 
+                                class="border border-cyan-500/30 text-cyan-400 font-bold py-6 rounded-3xl hover:bg-cyan-500/10 transition-all text-xs tracking-[0.2em] uppercase">
+                            Secure Login
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Footer data -->
+                <div class="pt-8 border-t border-white/5">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1 h-[1px] bg-white/5"></div>
+                        <span class="text-[8px] font-mono text-gray-700 tracking-[1em]">SYSTEM_STABLE_v.4.2</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <canvas id="hidden-canvas" class="hidden"></canvas>
+
+    <script>
+        // 1. INITIALIZE WEBCAM
+        const video = document.getElementById('webcam');
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => alert("SYSTEM_ERROR: Camera permissions denied."));
+
+        // 2. THREE.JS 3D NEURAL BACKGROUND
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg-canvas'), antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 8000;
+        const posArray = new Float32Array(particlesCount * 3);
+        for(let i=0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 15;
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({ size: 0.005, color: '#00f2ff', transparent: true, opacity: 0.3 });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        camera.position.z = 3;
+        function animate() {
+            requestAnimationFrame(animate);
+            particlesMesh.rotation.y += 0.0008;
+            particlesMesh.rotation.x += 0.0005;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 3. AUTH LOGIC & CINEMATIC TRANSITION
+        async function handleAction(mode) {
+            const nameField = document.getElementById('nameBox');
+            const name = nameField.value.trim();
+
+            if (mode === 'signup' && !name) {
+                alert("IDENTITY NAME REQUIRED FOR REGISTRATION");
+                return;
+            }
+
+            // Start UI Scanning Effect
+            document.getElementById('laser').style.display = 'block';
+            document.getElementById('status-display').innerText = "Status: Analyzing_VECTORS...";
+
+            // Capture Frame from Webcam
+            const canvas = document.getElementById('hidden-canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const imageBase64 = canvas.toDataURL('image/jpeg');
+
+            try {
+                // Send data to Flask Python Backend
+                const response = await fetch('/' + mode, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, image: imageBase64 })
+                });
+                
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Start the 10/10 Cinematic Greeting!
+                    revealGreeting(data.user);
+                } else {
+                    alert("ACCESS DENIED: " + data.message);
+                }
+            } catch (error) {
+                alert("SYSTEM_OFFLINE: Make sure you are using http://127.0.0.1:5000 and app.py is running!");
+            }
+
+            document.getElementById('laser').style.display = 'none';
+            document.getElementById('status-display').innerText = "Status: Standby";
+        }
+
+        // CINEMATIC TRANSITION FUNCTION
+        function revealGreeting(userName) {
+            const mainUI = document.getElementById('main-interface');
+            const greeting = document.getElementById('greeting-page');
+            const nameTag = document.getElementById('display-name');
+
+            nameTag.innerText = userName;
+
+            // GSAP Transition
+            const tl = gsap.timeline();
+            tl.to(mainUI, { 
+                opacity: 0, 
+                scale: 0.8, 
+                filter: "blur(40px)",
+                duration: 1, 
+                ease: "power4.inOut",
+                onComplete: () => {
+                    mainUI.style.display = 'none';
+                    greeting.style.display = 'flex';
+                }
+            })
+            .to(greeting, { opacity: 1, duration: 1.5, ease: "power2.out" })
+            .from("#display-name", { letterSpacing: "2em", opacity: 0, duration: 2.5, ease: "expo.out" }, "-=1");
+        }
+
+        // Handle window resize for 3D
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
